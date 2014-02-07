@@ -53,17 +53,19 @@
   (public-api-url [this]
     "http://pubapi.cryptsy.com/api.php")
 
-  (sign [this params]
-    (sha512-hmac (query-string params) api-secret))
+  (sign [this query-string]
+    (sha512-hmac query-string api-secret))
 
-  (headers [this params]
-    {:headers {"Sign" (sign this params)
+  (headers [this query-string]
+    {:headers {"Content-Type"  "application/x-www-form-urlencoded"
+               "Sign" (sign this query-string)
                "Key" api-key}})
 
   (fetch [this url]
-    (debug "Fetching (GET)" url)
+    (debug "(GET)" url)
     (let [options {:insecure? false
-                   :user-agent "cljyptsy-0.0.1"
+                   :user-agent "Mozilla/4.0 (compatible; Cryptsy API Clojure client)"
+
                    :content-type "application/json"}
           response (-> @(http/get url options)
                       :body
@@ -71,18 +73,20 @@
       response))
 
   (query [this method params]
-    (debug "Querying (POST)" method)
-    (let [params (merge params
-                        {"nonce" (coerce/to-long (t/now))
-                         "method" method})
+    (let [q-string (query-string (merge params
+                                        {"nonce" (coerce/to-long (t/now))
+                                         "method" method}))
           options (merge {:insecure? false
-                          :user-agent "cljyptsy-0.0.1"
-                          :content-type "application/json"
-                          :form-params params}
-                         (headers this params))
+                          :user-agent "Mozilla/4.0 (compatible; Cryptsy API Clojure client)"
+
+
+                          ;:content-type "application/json"
+                          :body q-string}
+                         (headers this q-string))
           response (-> @(http/post (api-url this) options)
                       :body
                       (json/read-str))]
+      (debug "(POST)" method options)
       response))
 
   ;; Public part of API
